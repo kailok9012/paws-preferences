@@ -19,7 +19,19 @@ export default function Home() {
     setTranslate(0);
     setSwipeEmoji("");
   };
-
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (index >= cats.length) return;
+      if (e.key === "ArrowRight") {
+        setLiked([...liked, cats[index]]);
+        setIndex(index + 1);
+      } else if (e.key === "ArrowLeft") {
+        setIndex(index + 1);
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [index, liked]);
   if (index >= cats.length) {
     return (
       <main className="min-h-screen p-4 flex flex-col items-center justify-center gap-6">
@@ -67,19 +79,6 @@ export default function Home() {
   const handleTouchEnd = () => {
     finishSwipe();
   };
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (index >= cats.length) return;
-      if (e.key === "ArrowRight") {
-        setLiked([...liked, cats[index]]);
-        setIndex(index + 1);
-      } else if (e.key === "ArrowLeft") {
-        setIndex(index + 1);
-      }
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [index, liked]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -142,7 +141,9 @@ export default function Home() {
         onMouseLeave={handleMouseUp}
         style={{
           touchAction: "none",
-          transform: `translateX(${translate}px) rotate(${translate * 0.1}deg)`,
+          transform: `translateX(${translate}px) rotate(${
+            translate * 0.03
+          }deg)`,
           transition: loadingNext ? "none" : "transform 0.1s ease-out",
         }}
         className="w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl aspect-[4/5] relative rounded-2xl shadow-lg overflow-hidden bg-gray-100 flex items-center justify-center cursor-grab active:cursor-grabbing"
