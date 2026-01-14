@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { cats, Cat } from "@/data/cats";
 
 export default function Home() {
@@ -8,7 +8,10 @@ export default function Home() {
   const [liked, setLiked] = useState<Cat[]>([]);
   const [translate, setTranslate] = useState(0);
   const [swipeEmoji, setSwipeEmoji] = useState("");
+  const [_, setSwipeDirection] = useState<"left" | "right" | null>(null);
+  const [loadingNext, setLoadingNext] = useState(false);
   const startX = useRef(0);
+  const isDragging = useRef(false);
 
   const restartGame = () => {
     setIndex(0);
@@ -52,10 +55,41 @@ export default function Home() {
   const handleTouchStart = (e: React.TouchEvent) => {
     startX.current = e.touches[0].clientX;
   };
-
   const handleTouchMove = (e: React.TouchEvent) => {
-    const currentX = e.touches[0].clientX;
-    const diff = currentX - startX.current;
+    e.preventDefault();
+    const diff = e.touches[0].clientX - startX.current;
+    setTranslate(diff);
+
+    if (diff > 50) setSwipeEmoji("❤️");
+    else if (diff < -50) setSwipeEmoji("❌");
+    else setSwipeEmoji("");
+  };
+  const handleTouchEnd = () => {
+    finishSwipe();
+  };
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (index >= cats.length) return;
+      if (e.key === "ArrowRight") {
+        setLiked([...liked, cats[index]]);
+        setIndex(index + 1);
+      } else if (e.key === "ArrowLeft") {
+        setIndex(index + 1);
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [index, liked]);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    startX.current = e.clientX;
+    isDragging.current = true;
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging.current) return;
+    const diff = e.clientX - startX.current;
     setTranslate(diff);
 
     if (diff > 50) setSwipeEmoji("❤️");
@@ -63,15 +97,37 @@ export default function Home() {
     else setSwipeEmoji("");
   };
 
-  const handleTouchEnd = () => {
+  const handleMouseUp = () => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    finishSwipe();
+  };
+  const finishSwipe = () => {
     if (translate > 100) {
-      setLiked([...liked, cats[index]]);
-      setIndex(index + 1);
+      setSwipeDirection("right");
+      setLoadingNext(true);
+      setTimeout(() => {
+        setLiked([...liked, cats[index]]);
+        setIndex(index + 1);
+        resetSwipe();
+      }, 200);
     } else if (translate < -100) {
-      setIndex(index + 1);
+      setSwipeDirection("left");
+      setLoadingNext(true);
+      setTimeout(() => {
+        setIndex(index + 1);
+        resetSwipe();
+      }, 200);
+    } else {
+      resetSwipe();
     }
+  };
+
+  const resetSwipe = () => {
     setTranslate(0);
     setSwipeEmoji("");
+    setSwipeDirection(null);
+    setLoadingNext(false);
   };
 
   return (
@@ -80,24 +136,35 @@ export default function Home() {
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className="w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl aspect-[4/5] relative rounded-2xl shadow-lg overflow-hidden bg-gray-100 flex items-center justify-center transition-transform duration-200 ease-out"
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
         style={{
-          transform: `translateX(${translate}px) rotate(${translate / 15}deg)`,
-          opacity: 1 - Math.abs(translate) / 500,
+          touchAction: "none",
+          transform: `translateX(${translate}px) rotate(${translate * 0.1}deg)`,
+          transition: loadingNext ? "none" : "transform 0.1s ease-out",
         }}
+        className="w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl aspect-[4/5] relative rounded-2xl shadow-lg overflow-hidden bg-gray-100 flex items-center justify-center cursor-grab active:cursor-grabbing"
       >
-        <img
-          src={cats[index].url}
-          alt={cats[index].name}
-          className="w-full h-full object-cover rounded-2xl"
-        />
+        {loadingNext ? (
+          <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-xl">
+            Loading...
+          </div>
+        ) : (
+          <img
+            src={cats[index].url}
+            alt={cats[index].name}
+            className="w-full h-full object-cover rounded-2xl"
+          />
+        )}
 
-        {swipeEmoji && (
+        {swipeEmoji && !loadingNext && (
           <div
             className={`absolute text-6xl font-bold ${
               swipeEmoji === "❤️"
-                ? "text-red-500 right-4"
-                : "text-gray-700 left-4"
+                ? "text-red-500 left-4"
+                : "text-gray-700 right-4"
             } top-4 animate-bounce`}
           >
             {swipeEmoji}
